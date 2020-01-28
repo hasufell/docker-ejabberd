@@ -14,7 +14,11 @@ source "${EJABBERD_HOME}/scripts/lib/functions.sh"
 write_file_from_env() {
     echo "Writing $1 to $2"
     mkdir -p "$(dirname $2)"
-    echo "${!1}" > $2
+    if [ -f "${!1}" ] ; then
+        cat "${!1}" > "$2"
+    else
+        echo "${!1}" > "$2"
+    fi
 }
 
 # Write the host certificate
