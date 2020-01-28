@@ -134,9 +134,6 @@ ADD https://raw.githubusercontent.com/rankenstein/ejabberd-auth-mysql/master/aut
 RUN chmod a+rx $EJABBERD_HOME/scripts/lib/auth_mysql.py
 RUN chmod +x /usr/local/lib/eimp*/priv/bin/eimp
 
-# Add config templates
-ADD ./conf /opt/ejabberd/conf
-
 # Continue as user
 USER $EJABBERD_USER
 
@@ -145,6 +142,9 @@ WORKDIR $EJABBERD_HOME
 
 VOLUME ["$EJABBERD_HOME/database", "$EJABBERD_HOME/ssl", "$EJABBERD_HOME/backup", "$EJABBERD_HOME/upload"]
 EXPOSE 4560 5222 5269 5280 5443
+
+# Add config templates
+ADD ./conf /opt/ejabberd/conf
 
 CMD ["start"]
 ENTRYPOINT ["run"]
