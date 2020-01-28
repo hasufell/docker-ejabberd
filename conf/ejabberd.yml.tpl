@@ -68,18 +68,15 @@ listen:
   -
     port: 4560
     module: ejabberd_xmlrpc
-    access_commands:
-      configure:
-        all: []
 
   -
     port: 5280
     module: ejabberd_http
     request_handlers:
       "/websocket": ejabberd_http_ws
+      "/admin": ejabberd_web_admin
+      "/bosh": mod_bosh
     ##  "/pub/archive": mod_http_fileserver
-    web_admin: true
-    http_bind: true
     ## register: true
     {%- if env.get('EJABBERD_CAPTCHA', false) == "true" %}
     captcha: true
@@ -105,6 +102,24 @@ listen:
     dhfile: "/opt/ejabberd/ssl/dh.dhpem"
     {%- endif %}
     {% endif %}
+
+
+api_permissions:
+  "console commands":
+    from:
+      - ejabberd_ctl
+    who: all
+    what: "*"
+  "admin access":
+    who:
+      - admin
+      - oauth:
+        - scope: "ejabberd:admin"
+        - admin
+    what:
+      - "*"
+      - "!stop"
+      - "!start"
 
 
 ###   CERTIFICATES
@@ -221,9 +236,34 @@ extauth_cache: {{ env['EJABBERD_EXTAUTH_CACHE'] }}
 ###   TRAFFIC SHAPERS
 
 shaper:
+  slow: 500
   normal: 1000
   fast: 50000
 max_fsm_queue: 1000
+
+shaper_rules:
+  s2s_shaper:
+    - fast
+  c2s_shaper:
+    - none: admin
+    - normal
+  connections_limit:
+    - 100: admin
+    - 5
+  download_speed:
+    - fast: admin
+    - slow: anonymous_users
+    - normal
+  log_days: 30
+  soft_upload_quota:
+    - {{ env.get('EJABBERD_SOFT_UPLOAD_QUOTA', 400) }}: all # MiB
+  hard_upload_quota:
+    - {{ env.get('EJABBERD_HARD_UPLOAD_QUOTA', 500) }}: all # MiB
+  max_user_offline_messages:
+    - 5000: admin
+    - 100
+  max_user_sessions:
+    - 10
 
 ###   ====================
 ###   ACCESS CONTROL LISTS
@@ -244,66 +284,47 @@ acl:
 ###   ============
 ###   ACCESS RULES
 
-access:
-  ## Maximum number of simultaneous sessions allowed for a single user:
-  max_user_sessions:
-    all: 10
-  ## Maximum number of offline messages that users can have:
-  max_user_offline_messages:
-    admin: 5000
-    all: 100
+access_rules:
   ## This rule allows access only for local users:
   local:
-    local: allow
+    - allow: local
   ## Only non-blocked users can use c2s connections:
   c2s:
-    blocked: deny
-    all: allow
-  ## For C2S connections, all users except admins use the "normal" shaper
-  c2s_shaper:
-    admin: none
-    all: normal
-  ## All S2S connections use the "fast" shaper
-  s2s_shaper:
-    all: fast
+    - deny: blocked
+    - allow
   ## Only admins can send announcement messages:
   announce:
-    admin: allow
+    - allow: admin
   ## Only admins can use the configuration interface:
   configure:
-    admin: allow
+    - allow: admin
   ## Admins of this server are also admins of the MUC service:
   muc_admin:
-    admin: allow
+    - allow: admin
   ## Only accounts of the local ejabberd server, or only admins can create rooms, depending on environment variable:
   muc_create:
     {%- if env['EJABBERD_MUC_CREATE_ADMIN_ONLY'] == "true" %}
-    admin: allow
+    - allow: admin
     {% else %}
-    local: allow
+    - allow: local
     {% endif %}
   ## All users are allowed to use the MUC service:
   muc:
-    all: allow
+    - allow: all
   ## Only accounts on the local ejabberd server can create Pubsub nodes:
   pubsub_createnode:
-    local: allow
+    - allow: local
   ## In-band registration allows registration of any possible username.
   register:
     {%- if env['EJABBERD_REGISTER_ADMIN_ONLY'] == "true" %}
-    all: deny
-    admin: allow
+    - deny: all
+    - allow: admin
     {% else %}
-    all: allow
+    - allow: all
     {% endif %}
   ## Only allow to register from localhost
   trusted_network:
-    loopback: allow
-  soft_upload_quota:
-    all: {{ env.get('EJABBERD_SOFT_UPLOAD_QUOTA', 400) }} # MiB
-  hard_upload_quota:
-    all: {{ env.get('EJABBERD_HARD_UPLOAD_QUOTA', 500) }} # MiB
-
+    - allow: loopback
 
 language: "en"
 
@@ -383,7 +404,6 @@ modules:
     last_item_cache: true
     plugins:
       - "flat"
-      - "hometree"
       - "pep" # pep requires mod_caps
   mod_push: {}
   mod_push_keepalive: {}
