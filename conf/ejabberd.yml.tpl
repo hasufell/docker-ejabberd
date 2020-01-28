@@ -377,7 +377,7 @@ modules:
       "eu.siacs.conversations.axolotl.*":
         access_model: open
     ## reduces resource comsumption, but XEP incompliant
-    ignore_pep_from_offline: true
+    #ignore_pep_from_offline: true
     ## XEP compliant, but increases resource comsumption
     ignore_pep_from_offline: false
     last_item_cache: true
@@ -433,9 +433,6 @@ modules:
 
 ###   ============
 ###   HOST CONFIG
-
-certfiles:
-  - "/opt/ejabberd/ssl/*.pem"
 
 {%- if env['EJABBERD_CONFIGURE_ODBC'] == "true" %}
 ###   ====================
